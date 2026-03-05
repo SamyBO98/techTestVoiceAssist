@@ -1,5 +1,6 @@
 #Manage asynchrone
 import asyncio
+import requests
 #Manage to create agent, connect audio and manage conversation
 from livekit import agents
 from livekit.agents import AgentSession, Agent, RoomInputOptions, tts as agents_tts, stt as agents_stt
@@ -17,6 +18,8 @@ import logging
 logging.basicConfig(level=logging.WARNING)
 
 
+
+FLASK_URL = "http://localhost:5000/end-of-call"
 
 #Load .env where there is all variables linked to the room i created in LiveKit
 load_dotenv()
@@ -148,7 +151,7 @@ class GTTSStream(agents_tts.ChunkedStream):
 
 
 #Testing Agent 
-class TestAgent(Agent):
+class AppointmentAgent(Agent):
     #Static role here since LLM=None
     def __init__(self, ctx):
         super().__init__(instructions="""
@@ -161,6 +164,7 @@ class TestAgent(Agent):
         Reste naturel comme un vrai secrétaire au téléphone.
                          """)
         self._ctx = ctx
+        self._appointment_date = None
 
     #Say the sentence without blocking + can be interrupted if user talk while he is talking
     async def on_enter(self):
@@ -168,6 +172,7 @@ class TestAgent(Agent):
 
     #Delay to hang up (End sentence + 5s)
     async def on_user_turn_completed(self, turn_ctx, new_message):
+        self._appointment_date = new_message.text_content
         await super().on_user_turn_completed(turn_ctx, new_message)
         asyncio.create_task(self._delayed_hangup(12))
 
@@ -175,18 +180,29 @@ class TestAgent(Agent):
     async def _delayed_hangup(self, delay):
         await asyncio.sleep(delay)
         print("=== HANG UP ===")
-        try:
+        def _send():
+            try:
+                resp = requests.post(FLASK_URL, json={
+                    "date": self._appointment_date,
+                    "room": self._ctx.room.name,
+                })
+                print("Send to Flask " + str(resp.status_code) + str(resp.json()))
+            except Exception as e:
+                print("Error Flask " + str(e))
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _send)
+        try: 
             await self._ctx.room.disconnect()
         except Exception:
             pass
 
-
+#
 
 async def entrypoint(ctx: agents.JobContext):
     #Connect to the room with .env data
     await ctx.connect()
 
-    agent = TestAgent(ctx)
+    agent = AppointmentAgent(ctx)
 
     #VAD = Voice Activity Detection
     session = AgentSession(

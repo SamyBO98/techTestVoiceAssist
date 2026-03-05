@@ -19,8 +19,21 @@ with app.app_context():
 # Endpoint POST minimal pour /end-of-call
 @app.route("/end-of-call", methods=["POST"])
 def end_of_call():
-    #Return 200 just to start
-    return jsonify({"status": "received"}), 200
+    data = request.get_json()
+    appointment_date = data.get("date")
+    call_id = data.get("room")
+    if not appointment_date:
+        return jsonify({"status": "error", "message": "date manquante"}), 400
+    call = CallInfo(
+        call_id=call_id,
+        appointment_date=appointment_date,
+    )
+    db.session.add(call)
+    db.session.commit()
+
+    print("Rendez-vous enregistré : " + str(repr(call)))
+    return jsonify({"status": "received", "appointment_date": appointment_date}), 200
+
 
 if __name__ == "__main__":
     app.run(debug=True)
