@@ -20,7 +20,7 @@ Session = sessionmaker(bind=engine)
 #Create session that closes automatically
 with Session() as session:
     # Add test
-    new_call = CallInfo(call_id="testIDDDDDDDDD", appointment_date="2026-03-06")
+    new_call = CallInfo(call_id="testID", appointment_date="2026-03-06")
     session.add(new_call)
     session.commit()
 
