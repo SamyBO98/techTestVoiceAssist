@@ -13,6 +13,9 @@ from dotenv import load_dotenv
 import io
 import numpy as np
 
+import logging
+logging.basicConfig(level=logging.WARNING)
+
 
 
 #Load .env where there is all variables linked to the room i created in LiveKit
@@ -144,29 +147,46 @@ class GTTSStream(agents_tts.ChunkedStream):
         output_emitter.end_input()
 
 
-#Testing Agent
+#Testing Agent 
 class TestAgent(Agent):
     #Static role here since LLM=None
-    def __init__(self):
+    def __init__(self, ctx):
         super().__init__(instructions="""
         Tu es un assistant vocal francophone spécialisé dans la prise de rendez-vous.
         Réponds TOUJOURS en français, de manière courte et claire.
         Demande la date et l'heure souhaitées pour le rendez-vous.
-        Confirme la date avec le client.
+        Quand l'utilisateur donne une date, confirme juste en disant "Parfait, votre rendez-vous est bien noté pour le [date]. Au revoir !".
         Ne dis JAMAIS que tu enregistres ou sauvegardes quoi que ce soit dans un système.
+        Ne propose JAMAIS de modification de date.
         Reste naturel comme un vrai secrétaire au téléphone.
                          """)
+        self._ctx = ctx
 
     #Say the sentence without blocking + can be interrupted if user talk while he is talking
     async def on_enter(self):
-        await self.session.say("Bonjour comment puis je vous aider ?", allow_interruptions=True)
+        await self.session.say("Bonjour. Quelle date vous conviendrait pour le rendez-vous ?", allow_interruptions=True)
+
+    #Delay to hang up (End sentence + 5s)
+    async def on_user_turn_completed(self, turn_ctx, new_message):
+        await super().on_user_turn_completed(turn_ctx, new_message)
+        asyncio.create_task(self._delayed_hangup(12))
+
+    #Disconnect after delay
+    async def _delayed_hangup(self, delay):
+        await asyncio.sleep(delay)
+        print("=== HANG UP ===")
+        try:
+            await self._ctx.room.disconnect()
+        except Exception:
+            pass
+
 
 
 async def entrypoint(ctx: agents.JobContext):
     #Connect to the room with .env data
     await ctx.connect()
 
-    agent = TestAgent()
+    agent = TestAgent(ctx)
 
     #VAD = Voice Activity Detection
     session = AgentSession(
