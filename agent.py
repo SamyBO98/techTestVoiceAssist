@@ -173,7 +173,7 @@ class AppointmentAgent(Agent):
 
     #Say the sentence without blocking + can be interrupted if user talk while he is talking
     async def on_enter(self):
-        await self.session.say("Bonjour. Quelle date vous conviendrait pour le rendez-vous ?", allow_interruptions=True)
+        await self.session.say("Bonjour. À quelle date souhaiteriez-vous fixer votre rendez-vous  ?", allow_interruptions=True)
 
     #Delay to hang up (5s)
     async def on_user_turn_completed(self, turn_ctx, new_message):
