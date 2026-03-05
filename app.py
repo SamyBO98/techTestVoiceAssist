@@ -7,6 +7,7 @@ app = Flask(__name__)
 
 DB_FILE = "calls_info.db"
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_FILE}"
+#No need to track all changes (only insert in our DB)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
