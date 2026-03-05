@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from db import db, CallInfo
-from sqlalchemy import create_engine
+import dateparser
 
 
 app = Flask(__name__)
@@ -20,7 +20,11 @@ with app.app_context():
 @app.route("/end-of-call", methods=["POST"])
 def end_of_call():
     data = request.get_json()
-    appointment_date = data.get("date")
+
+    raw_date = data.get("date")
+
+    parsed = dateparser.parse(raw_date, languages=["fr"])
+    appointment_date = parsed.strftime("%d/%m/%Y %H:%M") if parsed else raw_date
     call_id = data.get("room")
     if not appointment_date:
         return jsonify({"status": "error", "message": "date manquante"}), 400
