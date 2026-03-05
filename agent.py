@@ -154,18 +154,20 @@ class GTTSStream(agents_tts.ChunkedStream):
 class AppointmentAgent(Agent):
     #Static role here since LLM=None
     def __init__(self, ctx):
-        super().__init__(instructions="""
-        Tu es un assistant vocal francophone spécialisé dans la prise de rendez-vous.
-        Réponds TOUJOURS en français, de manière courte et claire.
-        Demande la date et l'heure souhaitées pour le rendez-vous.
-        Quand l'utilisateur donne une date, confirme juste en disant "Parfait, votre rendez-vous est bien noté pour le [date]. Au revoir !".
-        Tu dois aussi extraire la date au format JJ/MM/YYYY HH:MM.
-        Si l'année n'est pas précisée, utilise 2026.
-        Si l'heure n'est pas précisée, utilise 00:00.
-        Ne dis JAMAIS que tu enregistres ou sauvegardes quoi que ce soit dans un système.
-        Ne propose JAMAIS de modification de date.
-        Reste naturel comme un vrai secrétaire au téléphone.
-                         """)
+        #super().__init__(instructions="""
+        #Tu es un assistant vocal francophone spécialisé dans la prise de rendez-vous.
+        #Réponds TOUJOURS en français, de manière courte et claire.
+        #Demande la date et l'heure souhaitées pour le rendez-vous.
+        #Dès que l'utilisateur répond, dis UNIQUEMENT : "Parfait, au revoir ! [date]"
+        #Pas de phrase supplémentaire.
+        #Tu dois aussi extraire la date au format JJ/MM/YYYY HH:MM.
+        #Si l'année n'est pas précisée, utilise 2026.
+        #Si l'heure n'est pas précisée, utilise 00:00.
+        #Ne dis JAMAIS que tu enregistres ou sauvegardes quoi que ce soit dans un système.
+        #Ne propose JAMAIS de modification de date.
+        #Reste naturel comme un vrai secrétaire au téléphone.
+        #                 """)
+        super().__init__(instructions="")
         self._ctx = ctx
         self._appointment_date = None
 
@@ -173,33 +175,50 @@ class AppointmentAgent(Agent):
     async def on_enter(self):
         await self.session.say("Bonjour. Quelle date vous conviendrait pour le rendez-vous ?", allow_interruptions=True)
 
-    #Delay to hang up (End sentence + 5s)
+    #Delay to hang up (5s)
     async def on_user_turn_completed(self, turn_ctx, new_message):
         self._appointment_date = new_message.text_content
-        await super().on_user_turn_completed(turn_ctx, new_message)
-        asyncio.create_task(self._delayed_hangup(12))
+        await self.session.say("Parfait, au revoir !", allow_interruptions=False)
+        asyncio.create_task(self._delayed_hangup(5))
+        #await super().on_user_turn_completed(turn_ctx, new_message)
+        #asyncio.create_task(self._delayed_hangup(12))
 
-    #Disconnect after delay
+
     async def _delayed_hangup(self, delay):
         await asyncio.sleep(delay)
         print("=== HANG UP ===")
-        def _send():
+        print(self._appointment_date)
+        def _parse_and_send():
+            # Ollama parse la date
+            try:
+                import ollama
+                response = ollama.chat(model="gemma2:2b", messages=[{
+                    "role": "user",
+                    "content": f"Convertis cette date au format JJ/MM/YYYY HH:MM. Conserve l'heure exacte mentionnée. Si pas d'heure mets 00:00. Si pas d'année mets 2026. Reponds UNIQUEMENT avec la date formatée, exemple: 09/03/2026 09:00. Texte: '{self._appointment_date}'"
+                }])
+                date_to_send = response["message"]["content"].strip().split("\n")[0].strip()
+                print("Date parsée : "  + str(date_to_send))
+            except Exception:
+                date_to_send = self._appointment_date
+
+            # Envoi à Flask
             try:
                 resp = requests.post(FLASK_URL, json={
-                    "date": self._appointment_date,
+                    "date": date_to_send,
                     "room": self._ctx.room.name,
                 })
-                print("Send to Flask " + str(resp.status_code) + str(resp.json()))
+                print("Send to Flask " + str(resp.status_code))
             except Exception as e:
                 print("Error Flask " + str(e))
+
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, _send)
-        try: 
+        await loop.run_in_executor(None, _parse_and_send)
+
+        try:
             await self._ctx.room.disconnect()
         except Exception:
             pass
 
-#
 
 async def entrypoint(ctx: agents.JobContext):
     #Connect to the room with .env data
@@ -211,11 +230,12 @@ async def entrypoint(ctx: agents.JobContext):
     session = AgentSession(
         vad=silero.VAD.load(),
         stt=FasterWhisperSTT(model="small", language="fr"),
-        llm=livekit_openai.LLM(
-        model="gemma2:2b",
-        base_url="http://localhost:11434/v1",
-        api_key="ollama",
-        ),
+        llm = None,
+        #llm=livekit_openai.LLM(
+        #model="gemma2:2b",
+        #base_url="http://localhost:11434/v1",
+        #api_key="ollama",
+        #),
         tts=GTTSPlugin(),
     )
 
