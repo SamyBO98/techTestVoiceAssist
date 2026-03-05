@@ -5,6 +5,8 @@ from livekit import agents
 from livekit.agents import AgentSession, Agent, RoomInputOptions, tts as agents_tts, stt as agents_stt
 #Manage to detect silence vs parole
 from livekit.plugins import silero
+#Manage AI for answers
+from livekit.plugins import openai as livekit_openai
 #Google Text to Speech mp3 to text
 from gtts import gTTS
 from dotenv import load_dotenv
@@ -146,11 +148,18 @@ class GTTSStream(agents_tts.ChunkedStream):
 class TestAgent(Agent):
     #Static role here since LLM=None
     def __init__(self):
-        super().__init__(instructions="Tu es un assistant vocal de test. Réponds en français.")
+        super().__init__(instructions="""
+        Tu es un assistant vocal francophone spécialisé dans la prise de rendez-vous.
+        Réponds TOUJOURS en français, de manière courte et claire.
+        Demande la date et l'heure souhaitées pour le rendez-vous.
+        Confirme la date avec le client.
+        Ne dis JAMAIS que tu enregistres ou sauvegardes quoi que ce soit dans un système.
+        Reste naturel comme un vrai secrétaire au téléphone.
+                         """)
 
     #Say the sentence without blocking + can be interrupted if user talk while he is talking
     async def on_enter(self):
-        await self.session.say("Bonjour", allow_interruptions=True)
+        await self.session.say("Bonjour comment puis je vous aider ?", allow_interruptions=True)
 
 
 async def entrypoint(ctx: agents.JobContext):
@@ -163,7 +172,11 @@ async def entrypoint(ctx: agents.JobContext):
     session = AgentSession(
         vad=silero.VAD.load(),
         stt=FasterWhisperSTT(model="small", language="fr"),
-        llm=None,
+        llm=livekit_openai.LLM(
+        model="gemma2:2b",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        ),
         tts=GTTSPlugin(),
     )
 
