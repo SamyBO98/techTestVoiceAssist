@@ -7,16 +7,18 @@ from livekit.agents import AgentSession, Agent, RoomInputOptions, tts as agents_
 #Manage to detect silence vs parole
 from livekit.plugins import silero
 #Manage AI for answers
-from livekit.plugins import openai as livekit_openai
+#from livekit.plugins import openai as livekit_openai
 #Google Text to Speech mp3 to text
 from gtts import gTTS
 from dotenv import load_dotenv
 import io
 import numpy as np
-
 import logging
-logging.basicConfig(level=logging.WARNING)
+import scipy.signal
+import ollama
 
+
+logging.basicConfig(level=logging.WARNING)
 
 
 FLASK_URL = "http://localhost:5000/end-of-call"
@@ -60,11 +62,10 @@ class FasterWhisperSTT(agents_stt.STT):
         pcm = np.frombuffer(buffer.data, dtype=np.int16).astype(np.float32) / 32768.0
 
         # Resampling 24000 → 16000 Hz
-        import scipy.signal
         pcm = scipy.signal.resample(pcm, int(len(pcm) * 16000 / buffer.sample_rate))
  
         #Whisper blocks everytime (takes a lot of time + use GPU) so we exec it in another thread
-        def _transcribe():
+        def _transcribe_audio():
             model = self._load_model()
             #Allow us to recognize txt segments
             segments, _ = model.transcribe(pcm, language=self._language, beam_size=5, temperature=0.0)
@@ -72,7 +73,7 @@ class FasterWhisperSTT(agents_stt.STT):
             return " ".join(s.text for s in segments).strip()
 
         #Run the function
-        text = await loop.run_in_executor(None, _transcribe)
+        text = await loop.run_in_executor(None, _transcribe_audio)
         print("Transcription : " + str(text))
 
         #Return final_transcript
@@ -108,7 +109,7 @@ class GTTSStream(agents_tts.ChunkedStream):
         loop = asyncio.get_event_loop()
 
         #Blocking function but after run_in_executor
-        def _synth():
+        def _synth_audio():
             #Transform txt to french voice
             tts_obj = gTTS(text=self._text, lang="fr")
             buf = io.BytesIO()
@@ -118,10 +119,10 @@ class GTTSStream(agents_tts.ChunkedStream):
             buf.seek(0)
             return buf.read()
 
-        audio_bytes = await loop.run_in_executor(None, _synth)
+        audio_bytes = await loop.run_in_executor(None, _synth_audio)
 
         #MP3 to PCM
-        def _convert():
+        def _convert_mp3_to_pcm():
             import pydub
             buf = io.BytesIO(audio_bytes)
             #Read audio
@@ -133,7 +134,7 @@ class GTTSStream(agents_tts.ChunkedStream):
             return audio.raw_data
         
         #Run
-        pcm_data = await loop.run_in_executor(None, _convert)
+        pcm_data = await loop.run_in_executor(None, _convert_mp3_to_pcm)
 
         #Init livekit flow
         output_emitter.initialize(
@@ -191,7 +192,6 @@ class AppointmentAgent(Agent):
         def _parse_and_send():
             # Ollama parse la date
             try:
-                import ollama
                 response = ollama.chat(model="gemma2:2b", messages=[{
                     "role": "user",
                     "content": f"Convertis cette date au format JJ/MM/YYYY HH:MM. Conserve l'heure exacte mentionnée. Si pas d'heure mets 00:00. Si pas d'année mets 2026. Reponds UNIQUEMENT avec la date formatée, exemple: 09/03/2026 09:00. Texte: '{self._appointment_date}'"
