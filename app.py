@@ -19,7 +19,7 @@ with app.app_context():
 @app.route("/end-of-call", methods=["POST"])
 def end_of_call():
     data = request.get_json()
-
+    #Get all the data
     appointment_date = data.get("date", "")
     call_id = data.get("room")
     if not appointment_date or not call_id:

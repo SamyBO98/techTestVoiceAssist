@@ -23,12 +23,12 @@ import ollama
 
 FLASK_URL = "http://localhost:5000/end-of-call"
 
-#Load .env where there is all variables linked to the room i created in LiveKit
+#Load .env where there is all variables linked to the room I created in LiveKit
 load_dotenv()
 #load_dotenv(dotenv_path=r"C:\Users\samyb\OneDrive\Bureau\techTestVoiceAssist\.env")
 
 #Base class for the vocal recognition
-#Param = Agent Speak To Text
+#Param = Agent Speech To Text
 class FasterWhisperSTT(agents_stt.STT):
     #Base constructor
     def __init__(self, model: str = "small", language: str = "fr"):
@@ -47,6 +47,7 @@ class FasterWhisperSTT(agents_stt.STT):
         if self._model is None:
             #Import here because WhisperModel takes so much time    
             from faster_whisper import WhisperModel
+            #Using the GPU since I have NVIDIA but if you dont just use cpu (it will be slower)
             #self._model = WhisperModel(self._model_name, device="cpu", compute_type="int8") 
             self._model = WhisperModel(self._model_name, device="cuda", compute_type="float16")
         return self._model
@@ -91,7 +92,7 @@ class GTTSPlugin(agents_tts.TTS):
             num_channels=1,
         )
 
-    #Param text = text that i want to transform to speech
+    #Param text = text that I want to transform to speech
     #Return ChunkedStream (send audio by chunks) to read audio
     #Generate audio gTTS and convert to PCM
     def synthesize(self, text: str, **kwargs) -> agents_tts.ChunkedStream:
@@ -115,7 +116,7 @@ class GTTSStream(agents_tts.ChunkedStream):
             buf = io.BytesIO()
             #Write MP3 file to this buffer
             tts_obj.write_to_fp(buf)
-            #Back to the beginning of the buffer to read it
+            #Seek to start so the caller can read the full MP3 bytes
             buf.seek(0)
             return buf.read()
 
@@ -133,16 +134,16 @@ class GTTSStream(agents_tts.ChunkedStream):
             audio = audio.set_frame_rate(24000).set_channels(1).set_sample_width(2)
             return audio.raw_data
         
-        #Run
+        #Run in a separate thread
         pcm_data = await loop.run_in_executor(None, _convert_mp3_to_pcm)
 
-        #Init livekit flow
+        #Init livekit flow (PCM mono 24kHz, request_id = first 20 chars of text)
         output_emitter.initialize(
-        request_id=self._text[:20],
-        sample_rate=24000,
-        num_channels=1,
-        mime_type="audio/pcm",
-        stream=True,        
+            request_id=self._text[:20],
+            sample_rate=24000,
+            num_channels=1,
+            mime_type="audio/pcm",
+            stream=True,        
         )
         #Send audio by segments
         output_emitter.start_segment(segment_id="0")
@@ -151,9 +152,9 @@ class GTTSStream(agents_tts.ChunkedStream):
         output_emitter.end_input()
 
 
-#Testing Agent 
+#Main Agent 
 class AppointmentAgent(Agent):
-    #Static role here since LLM=None
+    #Static role here since LLM=None (uncomment all instructions if you want to use LLM uncomment LLM in entrypoint)
     def __init__(self, ctx):
         #super().__init__(instructions="""
         #Tu es un assistant vocal francophone spécialisé dans la prise de rendez-vous.
@@ -172,7 +173,7 @@ class AppointmentAgent(Agent):
         self._ctx = ctx
         self._appointment_date = None
 
-    #Say the sentence without blocking + can be interrupted if user talk while he is talking
+    #Say the sentence without blocking + can be interrupted if user talks while the agent is talking
     async def on_enter(self):
         await self.session.say("Bonjour. À quelle date souhaiteriez-vous fixer votre rendez-vous  ?", allow_interruptions=True)
 
@@ -191,18 +192,18 @@ class AppointmentAgent(Agent):
         print("=== HANG UP ===")
         print(self._appointment_date)
         def _parse_and_send():
-            # Ollama parse la date
+            # Ollama parse date
             try:
                 response = ollama.chat(model="gemma2:2b", messages=[{
                     "role": "user",
                     "content": f"Convertis cette date au format JJ/MM/YYYY HH:MM. Conserve l'heure exacte mentionnée. Si pas d'heure mets 00:00. Si pas d'année mets 2026. Reponds UNIQUEMENT avec la date formatée, exemple: 09/03/2026 09:00. Texte: '{self._appointment_date}'"
                 }])
                 date_to_send = response["message"]["content"].strip().split("\n")[0].strip()
-                print("Date parsée : "  + str(date_to_send))
+                print("Date parsed : "  + str(date_to_send))
             except Exception:
                 date_to_send = self._appointment_date
 
-            # Envoi à Flask
+            # Send POST to Flask
             try:
                 resp = requests.post(FLASK_URL, json={
                     "date": date_to_send,
@@ -248,6 +249,5 @@ async def entrypoint(ctx: agents.JobContext):
     )
 
 
-# ───── CLI ─────
 if __name__ == "__main__":
     agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=entrypoint))
