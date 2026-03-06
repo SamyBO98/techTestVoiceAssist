@@ -107,6 +107,16 @@ python token_gen.py
 
 Then paste the generated token in the LiveKit playground to connect to the room.
 
+
+## Check the database
+
+To verify that the appointment was correctly saved in the database, run:
+```bash
+python test/test_db_v2.py
+```
+
+This will print all the records stored in the database.
+
 ---
 
 ## Project structure
