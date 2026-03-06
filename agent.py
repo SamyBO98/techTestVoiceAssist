@@ -215,6 +215,8 @@ class AppointmentAgent(Agent):
 
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, _parse_and_send)
+        #Let livekit empty his queue
+        await asyncio.sleep(1)
         try:
             await self._ctx.room.disconnect()
         except ConnectionError:
