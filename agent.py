@@ -16,6 +16,7 @@ import numpy as np
 #import logging
 import scipy.signal
 import ollama
+import re
 
 
 #logging.basicConfig(level=logging.WARNING)
@@ -199,9 +200,13 @@ class AppointmentAgent(Agent):
                     "content": f"Convertis cette date au format JJ/MM/YYYY HH:MM. Conserve l'heure exacte mentionnée. Si pas d'heure mets 00:00. Si pas d'année mets 2026. Reponds UNIQUEMENT avec la date formatée, exemple: 09/03/2026 09:00. Texte: '{self._appointment_date}'"
                 }])
                 date_to_send = response["message"]["content"].strip().split("\n")[0].strip()
+                if not re.match(r"\d{2}/\d{2}/\d{4} \d{2}:\d{2}", date_to_send):
+                    print("Invalid date format")
+                    return
                 print("Date parsed : "  + str(date_to_send))
-            except Exception:
-                date_to_send = self._appointment_date
+            except Exception as e:
+                print("Error Ollama : " + str(e))
+                return
 
             # Send POST to Flask
             try:
