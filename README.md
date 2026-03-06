@@ -7,7 +7,7 @@ A voice-based appointment booking agent built with LiveKit, Faster Whisper (STT)
 ## Architecture
 
 ```
-User (browser/phone)
+User (browser)
         │
         ▼
    LiveKit Room
