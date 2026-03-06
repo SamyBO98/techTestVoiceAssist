@@ -13,12 +13,12 @@ from gtts import gTTS
 from dotenv import load_dotenv
 import io
 import numpy as np
-import logging
+#import logging
 import scipy.signal
 import ollama
 
 
-logging.basicConfig(level=logging.WARNING)
+#logging.basicConfig(level=logging.WARNING)
 
 
 FLASK_URL = "http://localhost:5000/end-of-call"
@@ -214,9 +214,10 @@ class AppointmentAgent(Agent):
 
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, _parse_and_send)
-
         try:
             await self._ctx.room.disconnect()
+        except ConnectionError:
+            pass
         except Exception:
             pass
 
