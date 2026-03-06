@@ -106,14 +106,18 @@ Runs on `http://localhost:5000` by default.
 **2. Start the LiveKit agent**
 
 On Windows, use the provided PowerShell script (adds CUDA DLLs to PATH automatically):
+> ⚠️ Before running `launch.ps1`, update the paths inside the script to match your own installation directory. Replace all occurrences of `C:\\Users\\samyb\\OneDrive\\Bureau\\techTestVoiceAssist` with the path where you cloned the repo.
 ```powershell
 .\launch.ps1
 ```
+> 💡 If you are using CPU instead of GPU, skip `launch.ps1` entirely and run the agent directly:
 
 Or manually:
 ```bash
 python agent.py connect --room test-room
 ```
+
+
 
 ## Generate a LiveKit token
 
