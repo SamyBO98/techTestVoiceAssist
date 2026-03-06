@@ -1,3 +1,9 @@
+# Voice Appointment Assistant
+
+A voice-based appointment booking agent built with LiveKit, Faster Whisper (STT), gTTS (TTS), and Ollama for date parsing. The agent answers an incoming call, asks the user for an appointment date, parses it, and saves it to a SQLite database via a Flask API.
+
+---
+
 ## About this project
 
 This repository is a technical test split into two parts:
@@ -11,13 +17,6 @@ See the code in `agent.py`, `app.py`, and `db.py`.
 - Notifying the dealership that a new call has been received
 
 See the diagram in `high-level-architecture.pdf`.
-
----
-
-
-# Voice Appointment Assistant
-
-A voice-based appointment booking agent built with LiveKit, Faster Whisper (STT), gTTS (TTS), and Ollama for date parsing. The agent answers an incoming call, asks the user for an appointment date, parses it, and saves it to a SQLite database via a Flask API.
 
 ---
 
