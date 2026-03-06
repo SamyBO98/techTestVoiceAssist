@@ -98,6 +98,15 @@ Or manually:
 python agent.py connect --room test-room
 ```
 
+## Generate a LiveKit token
+
+To join the room and interact with the agent, generate an access token first:
+```bash
+python token_gen.py
+```
+
+Then paste the generated token in the LiveKit playground to connect to the room.
+
 ---
 
 ## Project structure
