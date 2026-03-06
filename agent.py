@@ -181,6 +181,7 @@ class AppointmentAgent(Agent):
         self._appointment_date = new_message.text_content
         await self.session.say("Parfait, au revoir !", allow_interruptions=False)
         asyncio.create_task(self._delayed_hangup(5))
+        #In case we use AI but we dont (LLM = None)
         #await super().on_user_turn_completed(turn_ctx, new_message)
         #asyncio.create_task(self._delayed_hangup(12))
 
