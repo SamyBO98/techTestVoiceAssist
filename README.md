@@ -59,8 +59,8 @@ User (browser)
 
 ```bash
 # Clone the repo
-git clone https://github.com/SamyBO98/techTestVoiceAssist
-cd techTestVoiceAssist
+git clone https://github.com/SamyBO98/AI_VoiceAssist
+cd AI_VoiceAssist
 
 # Create and activate virtual environment
 python -m venv venv
